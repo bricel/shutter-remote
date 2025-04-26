@@ -25,7 +25,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/admin/shutter-control
-ExecStart=/home/admin/shutter-control/venv/bin/python /home/admin/shutter-control/app.py
+ExecStart=/usr/bin/python3 /home/admin/shutter-remote/app.py
 Restart=always
 RestartSec=10
 

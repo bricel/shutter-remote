@@ -1,21 +1,44 @@
 import RPi.GPIO as GPIO
 import time
+import os
+
+# Try to kill any running pigpio daemon
+os.system("sudo killall pigpiod 2>/dev/null || true")
+time.sleep(1)
 
 # Clean up any previous configuration
-GPIO.cleanup()
+try:
+    GPIO.cleanup()
+except:
+    pass
 
-# Set mode and configure pins with pull-down resistors
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(17, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(27, GPIO.OUT, initial=GPIO.LOW)
+# Set mode to BCM (the same as used in the app.py)
+GPIO.setmode(GPIO.BCM)
 
-print("GPIO pins 17 and 27 have been reset to LOW state")
-print("Waiting 5 seconds to verify...")
-time.sleep(5)
+# GPIO pins we want to reset
+pins = [17, 27]
 
-# Verify pins are still LOW
-print("GPIO 17 state:", "HIGH" if GPIO.input(17) else "LOW")
-print("GPIO 27 state:", "HIGH" if GPIO.input(27) else "LOW")
+# Configure pins as outputs and set to HIGH (inactive for relays)
+for pin in pins:
+    try:
+        GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
+        print(f"GPIO {pin} set to HIGH (inactive)")
+    except Exception as e:
+        print(f"Error setting up GPIO {pin}: {e}")
 
+print("Waiting 2 seconds...")
+time.sleep(2)
+
+# Verify pin states
+for pin in pins:
+    try:
+        state = GPIO.input(pin)
+        print(f"GPIO {pin} state: {'HIGH' if state else 'LOW'}")
+    except Exception as e:
+        print(f"Error reading GPIO {pin}: {e}")
+
+# Clean up
 GPIO.cleanup()
 print("GPIO cleaned up")
+
+print("You can now restart the motor-control service")
