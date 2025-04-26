@@ -82,5 +82,8 @@ User=root
 ```
 
 
+Reload the systemd manager configuration and restart the service if you make any changes to the service file:
+```
 sudo systemctl daemon-reload
 sudo systemctl restart motor-control.service
+```
