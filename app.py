@@ -1,11 +1,16 @@
 from flask import Flask, render_template, request
-from gpiozero import OutputDevice
+import pigpio
 import logging
 import time
+import os
 
-# Set up more detailed logging
+# Start pigpio daemon if not already running
+os.system("sudo pigpiod 2>/dev/null || true")
+time.sleep(1)  # Give the daemon time to start
+
+# Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -16,11 +21,19 @@ app = Flask(__name__)
 MOTOR1_FORWARD_PIN = 17
 MOTOR1_REVERSE_PIN = 27
 
-# Create output devices with detailed logging
-logger.debug(f"Setting up GPIO {MOTOR1_FORWARD_PIN} and {MOTOR1_REVERSE_PIN} as outputs")
-forward_relay = OutputDevice(MOTOR1_FORWARD_PIN, active_high=True, initial_value=False)
-reverse_relay = OutputDevice(MOTOR1_REVERSE_PIN, active_high=True, initial_value=False)
-logger.info("GPIO pins initialized successfully")
+# Initialize pigpio
+pi = pigpio.pi()  # Connect to local Pi
+if not pi.connected:
+    logger.error("Failed to connect to pigpio daemon!")
+else:
+    logger.info("Connected to pigpio daemon successfully")
+
+# Set up pins as outputs and initialize to HIGH (inactive for active-low logic)
+pi.set_mode(MOTOR1_FORWARD_PIN, pigpio.OUTPUT)
+pi.set_mode(MOTOR1_REVERSE_PIN, pigpio.OUTPUT)
+pi.write(MOTOR1_FORWARD_PIN, 1)  # Set to HIGH (inactive)
+pi.write(MOTOR1_REVERSE_PIN, 1)  # Set to HIGH (inactive)
+logger.info("GPIO pins initialized successfully with active-low logic")
 
 @app.route('/')
 def index():
@@ -34,19 +47,23 @@ def forward():
     logger.info(f"FORWARD button clicked from {client_ip}")
 
     # Log initial pin states
-    logger.debug(f"Initial pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Initial pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
-    # Safety: Turn off reverse first
-    logger.debug("Setting reverse pin to OFF")
-    reverse_relay.off()
+    # Safety: Make sure reverse is inactive first (HIGH for active-low logic)
+    logger.debug("Setting reverse pin to INACTIVE (HIGH)")
+    pi.write(MOTOR1_REVERSE_PIN, 1)
     time.sleep(0.1)  # Small delay for safety
 
-    # Set forward pin active
-    logger.debug("Setting forward pin to ON")
-    forward_relay.on()
+    # Set forward pin active (LOW for active-low logic)
+    logger.debug("Setting forward pin to ACTIVE (LOW)")
+    pi.write(MOTOR1_FORWARD_PIN, 0)
 
     # Log final pin states
-    logger.debug(f"Final pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Final pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
     return "Moving forward"
 
@@ -56,19 +73,23 @@ def reverse():
     logger.info(f"REVERSE button clicked from {client_ip}")
 
     # Log initial pin states
-    logger.debug(f"Initial pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Initial pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
-    # Safety: Turn off forward first
-    logger.debug("Setting forward pin to OFF")
-    forward_relay.off()
+    # Safety: Make sure forward is inactive first (HIGH for active-low logic)
+    logger.debug("Setting forward pin to INACTIVE (HIGH)")
+    pi.write(MOTOR1_FORWARD_PIN, 1)
     time.sleep(0.1)  # Small delay for safety
 
-    # Set reverse pin active
-    logger.debug("Setting reverse pin to ON")
-    reverse_relay.on()
+    # Set reverse pin active (LOW for active-low logic)
+    logger.debug("Setting reverse pin to ACTIVE (LOW)")
+    pi.write(MOTOR1_REVERSE_PIN, 0)
 
     # Log final pin states
-    logger.debug(f"Final pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Final pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
     return "Moving reverse"
 
@@ -78,54 +99,59 @@ def stop():
     logger.info(f"STOP button clicked from {client_ip}")
 
     # Log initial pin states
-    logger.debug(f"Initial pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Initial pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
-    # Turn off both pins
-    logger.debug("Setting both pins to OFF")
-    forward_relay.off()
-    reverse_relay.off()
+    # Turn off both pins (HIGH for active-low logic)
+    logger.debug("Setting both pins to INACTIVE (HIGH)")
+    pi.write(MOTOR1_FORWARD_PIN, 1)
+    pi.write(MOTOR1_REVERSE_PIN, 1)
 
     # Log final pin states
-    logger.debug(f"Final pin states - Forward: {forward_relay.value}, Reverse: {reverse_relay.value}")
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
+    logger.debug(f"Final pin states - Forward: {forward_state}, Reverse: {reverse_state}")
 
     return "Stopped"
 
 @app.route('/status')
 def status():
     # Get current pin states
-    forward_state = forward_relay.value
-    reverse_state = reverse_relay.value
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
 
     logger.debug(f"Status check - Forward pin: {forward_state}, Reverse pin: {reverse_state}")
 
-    # Determine motor status
-    if forward_state and not reverse_state:
+    # Determine motor status (for active-low logic)
+    if forward_state == 0 and reverse_state == 1:
         status = "Moving forward"
-    elif reverse_state and not forward_state:
+    elif forward_state == 1 and reverse_state == 0:
         status = "Moving reverse"
-    elif not forward_state and not reverse_state:
+    elif forward_state == 1 and reverse_state == 1:
         status = "Stopped"
     else:
         status = "Error: Both pins active!"
-        logger.error("ERROR: Both pins are active simultaneously - forcing both OFF")
-        # Safety: Turn off both pins if both are somehow active
-        forward_relay.off()
-        reverse_relay.off()
+        logger.error("ERROR: Both pins are active simultaneously - forcing both inactive")
+        # Safety: Set both pins inactive
+        pi.write(MOTOR1_FORWARD_PIN, 1)
+        pi.write(MOTOR1_REVERSE_PIN, 1)
 
     return status
 
 @app.route('/debug')
 def debug_info():
-    # A new endpoint to get detailed debug information
-    forward_state = forward_relay.value
-    reverse_state = reverse_relay.value
+    # A debug endpoint to get detailed information
+    forward_state = pi.read(MOTOR1_FORWARD_PIN)
+    reverse_state = pi.read(MOTOR1_REVERSE_PIN)
 
     debug_info = {
         "forward_pin": MOTOR1_FORWARD_PIN,
         "reverse_pin": MOTOR1_REVERSE_PIN,
-        "forward_state": "HIGH" if forward_state else "LOW",
-        "reverse_state": "HIGH" if reverse_state else "LOW",
-        "time": time.strftime("%Y-%m-%d %H:%M:%S")
+        "forward_state": "LOW (active)" if forward_state == 0 else "HIGH (inactive)",
+        "reverse_state": "LOW (active)" if reverse_state == 0 else "HIGH (inactive)",
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "pigpio_connected": pi.connected
     }
 
     return str(debug_info)
@@ -133,18 +159,30 @@ def debug_info():
 if __name__ == '__main__':
     logger.info("Motor control server starting up")
     logger.info(f"Forward pin: GPIO{MOTOR1_FORWARD_PIN}, Reverse pin: GPIO{MOTOR1_REVERSE_PIN}")
+    logger.info("Using active-LOW logic for relay control")
 
     try:
         # Try to toggle pins once on startup to verify they're working
         logger.debug("Testing pins on startup...")
-        forward_relay.on()
+        # Test forward
+        pi.write(MOTOR1_FORWARD_PIN, 0)  # Active
         time.sleep(0.2)
-        forward_relay.off()
-        reverse_relay.on()
+        pi.write(MOTOR1_FORWARD_PIN, 1)  # Inactive
+        # Test reverse
+        pi.write(MOTOR1_REVERSE_PIN, 0)  # Active
         time.sleep(0.2)
-        reverse_relay.off()
-        logger.debug("Pin test completed successfully")
+        pi.write(MOTOR1_REVERSE_PIN, 1)  # Inactive
+        logger.debug("Pin test completed")
+
+        # Start the flask app
+        app.run(host='0.0.0.0', port=5000, debug=True)
+    except KeyboardInterrupt:
+        logger.info("Server shutting down")
     except Exception as e:
-        logger.error(f"Error during pin test: {e}")
-        
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        logger.error(f"Error: {e}")
+    finally:
+        # Ensure pins are set to inactive
+        pi.write(MOTOR1_FORWARD_PIN, 1)
+        pi.write(MOTOR1_REVERSE_PIN, 1)
+        pi.stop()  # Release resources
+        logger.info("GPIO pins set to inactive (HIGH) and resources released")

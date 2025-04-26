@@ -1,54 +1,94 @@
-import RPi.GPIO as GPIO
+#!/usr/bin/env python3
+import os
 import time
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(17, GPIO.OUT)
-GPIO.setup(27, GPIO.OUT)
+print("Simple GPIO Test Script (System Command version)")
 
-# Make sure both pins are LOW (off)
-GPIO.output(17, GPIO.LOW)
-GPIO.output(27, GPIO.LOW)
-print("Both pins are now OFF")
-time.sleep(2)
+# Define the pins we're working with
+bcm_pins = [17, 27]
+
+# Function to write to a GPIO pin
+def set_pin(pin, value):
+    # First export the pin if not already
+    os.system(f"echo {pin} | sudo tee /sys/class/gpio/export 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Set direction to out
+    os.system(f"echo out | sudo tee /sys/class/gpio/gpio{pin}/direction 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Set the value
+    os.system(f"echo {value} | sudo tee /sys/class/gpio/gpio{pin}/value 2>/dev/null || true")
+    
+    # Read back the value to verify
+    return get_pin_value(pin)
+
+# Function to read a GPIO pin
+def get_pin_value(pin):
+    # Make sure the pin is exported
+    os.system(f"echo {pin} | sudo tee /sys/class/gpio/export 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Try to read the value
+    try:
+        return os.popen(f"cat /sys/class/gpio/gpio{pin}/value").read().strip()
+    except:
+        return "error"
+
+# Setup pins
+print("Setting up pins...")
+for pin in bcm_pins:
+    set_pin(pin, 1)  # Start with pins HIGH (inactive)
+
+# Display initial states
+print(f"Pin {bcm_pins[0]} initial state: {get_pin_value(bcm_pins[0])}")
+print(f"Pin {bcm_pins[1]} initial state: {get_pin_value(bcm_pins[1])}")
 
 try:
-    while True:
-        # Test options
-        print("\nOptions:")
-        print("1: Turn GPIO 17 ON")
-        print("2: Turn GPIO 17 OFF")
-        print("3: Turn GPIO 27 ON")
-        print("4: Turn GPIO 27 OFF")
-        print("5: Turn BOTH OFF")
-        print("q: Quit")
-        
-        choice = input("Enter choice: ")
-        
-        if choice == '1':
-            GPIO.output(17, GPIO.HIGH)
-            print("GPIO 17 is ON")
-        elif choice == '2':
-            GPIO.output(17, GPIO.LOW)
-            print("GPIO 17 is OFF")
-        elif choice == '3':
-            GPIO.output(27, GPIO.HIGH)
-            print("GPIO 27 is ON")
-        elif choice == '4':
-            GPIO.output(27, GPIO.LOW)
-            print("GPIO 27 is OFF")
-        elif choice == '5':
-            GPIO.output(17, GPIO.LOW)
-            GPIO.output(27, GPIO.LOW)
-            print("Both pins are OFF")
-        elif choice.lower() == 'q':
-            break
-        else:
-            print("Invalid choice")
-            
+    print("\nRunning automatic test sequence...")
+    
+    # Both pins HIGH (inactive)
+    print("Setting both pins HIGH (inactive)")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # First pin LOW (active), second HIGH
+    print(f"Setting pin {bcm_pins[0]} LOW (active), pin {bcm_pins[1]} HIGH (inactive)")
+    set_pin(bcm_pins[0], 0)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # First pin HIGH, second LOW (active)
+    print(f"Setting pin {bcm_pins[0]} HIGH (inactive), pin {bcm_pins[1]} LOW (active)")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 0)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # Both pins HIGH (inactive) again
+    print("Setting both pins HIGH (inactive) again")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    
+    print("\nTest sequence complete!")
+    
 except KeyboardInterrupt:
-    pass
+    print("\nTest interrupted")
+    
 finally:
-    GPIO.output(17, GPIO.LOW)
-    GPIO.output(27, GPIO.LOW)
-    GPIO.cleanup()
-    print("\nGPIO cleaned up")
+    # Clean up - set pins HIGH and unexport
+    print("\nCleaning up...")
+    for pin in bcm_pins:
+        set_pin(pin, 1)  # Set HIGH (inactive)
+        time.sleep(0.1)
+        os.system(f"echo {pin} | sudo tee /sys/class/gpio/unexport 2>/dev/null || true")
+    
+    print("GPIO pins set to inactive and unexported")

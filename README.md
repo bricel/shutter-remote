@@ -25,7 +25,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/home/admin/shutter-control
-ExecStart=/home/admin/shutter-control/venv/bin/python /home/admin/shutter-control/app.py
+ExecStart=/usr/bin/python3 /home/admin/shutter-remote/app.py
 Restart=always
 RestartSec=10
 
@@ -82,5 +82,8 @@ User=root
 ```
 
 
+Reload the systemd manager configuration and restart the service if you make any changes to the service file:
+```
 sudo systemctl daemon-reload
 sudo systemctl restart motor-control.service
+```

@@ -1,21 +1,25 @@
-import RPi.GPIO as GPIO
+#!/usr/bin/env python3
+import os
 import time
 
-# Clean up any previous configuration
-GPIO.cleanup()
+print("GPIO Reset Script (System Command version)")
 
-# Set mode and configure pins with pull-down resistors
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(17, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(27, GPIO.OUT, initial=GPIO.LOW)
+# Kill any running pigpio daemon
+print("Stopping any running pigpio daemon...")
+os.system("sudo killall pigpiod 2>/dev/null || true")
+time.sleep(1)
 
-print("GPIO pins 17 and 27 have been reset to LOW state")
-print("Waiting 5 seconds to verify...")
-time.sleep(5)
+# Reset GPIO permissions
+print("Resetting GPIO permissions...")
+os.system("sudo chmod -R a+rw /sys/class/gpio 2>/dev/null || true")
+os.system("sudo chmod -R a+rw /dev/gpiomem 2>/dev/null || true")
 
-# Verify pins are still LOW
-print("GPIO 17 state:", "HIGH" if GPIO.input(17) else "LOW")
-print("GPIO 27 state:", "HIGH" if GPIO.input(27) else "LOW")
+# Unexport any exported pins
+print("Unexporting GPIO pins...")
+os.system("echo 17 | sudo tee /sys/class/gpio/unexport 2>/dev/null || true")
+os.system("echo 27 | sudo tee /sys/class/gpio/unexport 2>/dev/null || true")
+time.sleep(1)
 
-GPIO.cleanup()
-print("GPIO cleaned up")
+print("\nGPIO reset complete")
+print("You can now restart the motor-control service with:")
+print("sudo systemctl restart motor-control.service")
