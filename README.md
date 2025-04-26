@@ -1,4 +1,11 @@
-I'll show you how to make your Python Flask server run automatically at startup on your Raspberry Pi Zero W running Ubuntu. There are several ways to do this, but the most reliable method for systemd-based systems like Ubuntu is using a systemd service.
+# ssh into your Raspberry Pie
+
+```angular2html
+ssh admin@192.168.1.50
+```
+
+password: `admin`
+
 
 Here's how to set it up:
 
@@ -16,9 +23,9 @@ Description=Motor Control Web Server
 After=network.target
 
 [Service]
-User=admin
-WorkingDirectory=/home/admin/motor_control
-ExecStart=/home/admin/motor_control/venv/bin/python /home/admin/motor_control/app.py
+User=root
+WorkingDirectory=/home/admin/shutter-control
+ExecStart=/home/admin/shutter-control/venv/bin/python /home/admin/shutter-control/app.py
 Restart=always
 RestartSec=10
 
@@ -27,7 +34,7 @@ WantedBy=multi-user.target
 ```
 
 Make sure to:
-- Change `admin` to your actual username if different
+- Change `root` to your actual username if different
 - Check that the paths match your actual setup
 - If you're not using a virtual environment, change the ExecStart line to use the system Python: `ExecStart=/usr/bin/python3 /home/admin/motor_control/app.py`
 
