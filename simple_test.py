@@ -1,105 +1,94 @@
-import pigpio
-import time
+#!/usr/bin/env python3
 import os
+import time
 
-print("Simple GPIO Test Script using pigpio")
+print("Simple GPIO Test Script (System Command version)")
 
-# Make sure pigpio daemon is running
-os.system("sudo killall pigpiod 2>/dev/null || true")
-time.sleep(1)
-os.system("sudo pigpiod")
-time.sleep(1)
+# Define the pins we're working with
+bcm_pins = [17, 27]
 
-# Create pi instance
-pi = pigpio.pi()
+# Function to write to a GPIO pin
+def set_pin(pin, value):
+    # First export the pin if not already
+    os.system(f"echo {pin} | sudo tee /sys/class/gpio/export 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Set direction to out
+    os.system(f"echo out | sudo tee /sys/class/gpio/gpio{pin}/direction 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Set the value
+    os.system(f"echo {value} | sudo tee /sys/class/gpio/gpio{pin}/value 2>/dev/null || true")
+    
+    # Read back the value to verify
+    return get_pin_value(pin)
 
-if not pi.connected:
-    print("Could not connect to pigpio daemon. Is it running?")
-    exit(1)
+# Function to read a GPIO pin
+def get_pin_value(pin):
+    # Make sure the pin is exported
+    os.system(f"echo {pin} | sudo tee /sys/class/gpio/export 2>/dev/null || true")
+    time.sleep(0.1)
+    
+    # Try to read the value
+    try:
+        return os.popen(f"cat /sys/class/gpio/gpio{pin}/value").read().strip()
+    except:
+        return "error"
 
-print("Connected to pigpio daemon")
+# Setup pins
+print("Setting up pins...")
+for pin in bcm_pins:
+    set_pin(pin, 1)  # Start with pins HIGH (inactive)
 
-# We'll test with the same pins used in the application
-pin1 = 17
-pin2 = 27
-
-# Set up pins
-pi.set_mode(pin1, pigpio.OUTPUT)
-pi.set_mode(pin2, pigpio.OUTPUT)
-
-# Initial state - set both pins HIGH (inactive for relays)
-pi.write(pin1, 1)
-pi.write(pin2, 1)
-print(f"Pin {pin1} current state: {pi.read(pin1)}")
-print(f"Pin {pin2} current state: {pi.read(pin2)}")
+# Display initial states
+print(f"Pin {bcm_pins[0]} initial state: {get_pin_value(bcm_pins[0])}")
+print(f"Pin {bcm_pins[1]} initial state: {get_pin_value(bcm_pins[1])}")
 
 try:
-    while True:
-        # Test options
-        print("\nOptions:")
-        print(f"1: Set pin {pin1} HIGH (inactive)")
-        print(f"2: Set pin {pin1} LOW (active)")
-        print(f"3: Set pin {pin2} HIGH (inactive)")
-        print(f"4: Set pin {pin2} LOW (active)")
-        print("5: Set BOTH HIGH (inactive)")
-        print("6: Test automatic sequence")
-        print("q: Quit")
-        
-        choice = input("Enter choice: ")
-        
-        if choice == '1':
-            pi.write(pin1, 1)
-            print(f"Pin {pin1} is HIGH (inactive)")
-        elif choice == '2':
-            pi.write(pin1, 0)
-            print(f"Pin {pin1} is LOW (active)")
-        elif choice == '3':
-            pi.write(pin2, 1)
-            print(f"Pin {pin2} is HIGH (inactive)")
-        elif choice == '4':
-            pi.write(pin2, 0)
-            print(f"Pin {pin2} is LOW (active)")
-        elif choice == '5':
-            pi.write(pin1, 1)
-            pi.write(pin2, 1)
-            print("Both pins are HIGH (inactive)")
-        elif choice == '6':
-            print("\nRunning automatic test sequence...")
-            # Both HIGH (inactive)
-            pi.write(pin1, 1)
-            pi.write(pin2, 1)
-            print("Both pins HIGH (inactive)")
-            time.sleep(2)
-            
-            # Pin 1 LOW (active), Pin 2 HIGH (inactive)
-            pi.write(pin1, 0)
-            pi.write(pin2, 1)
-            print(f"Pin {pin1} LOW (active), Pin {pin2} HIGH (inactive)")
-            time.sleep(2)
-            
-            # Pin 1 HIGH (inactive), Pin 2 LOW (active)
-            pi.write(pin1, 1)
-            pi.write(pin2, 0)
-            print(f"Pin {pin1} HIGH (inactive), Pin {pin2} LOW (active)")
-            time.sleep(2)
-            
-            # Both HIGH (inactive) again
-            pi.write(pin1, 1)
-            pi.write(pin2, 1)
-            print("Both pins HIGH (inactive) again")
-        elif choice.lower() == 'q':
-            break
-        else:
-            print("Invalid choice")
-        
-        # Display current state after each action
-        print(f"Current states - Pin {pin1}: {pi.read(pin1)}, Pin {pin2}: {pi.read(pin2)}")
-            
+    print("\nRunning automatic test sequence...")
+    
+    # Both pins HIGH (inactive)
+    print("Setting both pins HIGH (inactive)")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # First pin LOW (active), second HIGH
+    print(f"Setting pin {bcm_pins[0]} LOW (active), pin {bcm_pins[1]} HIGH (inactive)")
+    set_pin(bcm_pins[0], 0)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # First pin HIGH, second LOW (active)
+    print(f"Setting pin {bcm_pins[0]} HIGH (inactive), pin {bcm_pins[1]} LOW (active)")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 0)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    time.sleep(2)
+    
+    # Both pins HIGH (inactive) again
+    print("Setting both pins HIGH (inactive) again")
+    set_pin(bcm_pins[0], 1)
+    set_pin(bcm_pins[1], 1)
+    print(f"Pin {bcm_pins[0]} state: {get_pin_value(bcm_pins[0])}")
+    print(f"Pin {bcm_pins[1]} state: {get_pin_value(bcm_pins[1])}")
+    
+    print("\nTest sequence complete!")
+    
 except KeyboardInterrupt:
     print("\nTest interrupted")
+    
 finally:
-    # Set both pins to HIGH (inactive) before exiting
-    pi.write(pin1, 1)
-    pi.write(pin2, 1)
-    pi.stop()
-    print("\nPins set to HIGH (inactive) and resources released")
+    # Clean up - set pins HIGH and unexport
+    print("\nCleaning up...")
+    for pin in bcm_pins:
+        set_pin(pin, 1)  # Set HIGH (inactive)
+        time.sleep(0.1)
+        os.system(f"echo {pin} | sudo tee /sys/class/gpio/unexport 2>/dev/null || true")
+    
+    print("GPIO pins set to inactive and unexported")
