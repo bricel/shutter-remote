@@ -43,6 +43,7 @@ Make sure to:
 ### 4. Enable and start the service
 
 ```bash
+
 sudo systemctl enable motor-control.service
 sudo systemctl start motor-control.service
 ```
@@ -62,6 +63,10 @@ If the service doesn't start properly:
 1. Check logs for errors:
 ```bash
 sudo journalctl -u motor-control.service
+or
+sudo journalctl -u motor-control.service -f
+
+
 ```
 
 2. Make sure your Python script has the necessary permissions:
@@ -76,4 +81,6 @@ User=root
 ...
 ```
 
-Now your motor control web server will automatically start whenever your Raspberry Pi boots, and it will restart automatically if it crashes for any reason.
+
+sudo systemctl daemon-reload
+sudo systemctl restart motor-control.service

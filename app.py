@@ -143,4 +143,8 @@ if __name__ == '__main__':
         reverse_relay.on()
         time.sleep(0.2)
         reverse_relay.off()
-        logger.de
+        logger.debug("Pin test completed successfully")
+    except Exception as e:
+        logger.error(f"Error during pin test: {e}")
+        
+    app.run(host='0.0.0.0', port=5000, debug=True)
